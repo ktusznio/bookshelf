@@ -280,15 +280,16 @@
     if (!book) return;
     currentDetailBook = book;
 
-    const dim = getBookDimensions(book.title);
     document.getElementById('detailBookPreview').innerHTML = `
-      <div class="book-spine" style="
-        width: ${dim.width * 1.3}px;
-        height: ${dim.height * 1.1}px;
-        background: ${book.color};
-      ">
-        <span class="book-title" style="font-size: 0.8rem">${escapeHtml(book.title)}</span>
-        <span class="book-author">${escapeHtml(book.author)}</span>
+      <div class="book-cover" style="background: ${book.color};">
+        <div class="cover-frame"></div>
+        <div class="cover-inner">
+          <div class="cover-rule"></div>
+          <div class="cover-title">${escapeHtml(book.title)}</div>
+          <div class="cover-rule"></div>
+          <div class="cover-author">${escapeHtml(book.author)}</div>
+          <div class="cover-ornament">&#10053;</div>
+        </div>
       </div>
     `;
 
