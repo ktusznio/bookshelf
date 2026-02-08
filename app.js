@@ -215,8 +215,21 @@
 
   function deleteTab(tabId) {
     if (tabs.length <= 1) return;
-    const idx = tabs.findIndex(t => t.id === tabId);
-    if (idx === -1) return;
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+    const shelfCount = shelves.filter(s => s.tabId === tabId).length;
+    const bookCount = books.filter(b => {
+      const s = shelves.find(s => s.id === b.shelfId);
+      return s && s.tabId === tabId;
+    }).length;
+    let msg = 'Delete tab "' + tab.name + '"?';
+    if (shelfCount > 0 || bookCount > 0) {
+      msg += '\n\nIts ' + shelfCount + ' shelf' + (shelfCount === 1 ? '' : 'es') +
+        ' and ' + bookCount + ' book' + (bookCount === 1 ? '' : 's') +
+        ' will be moved to another tab.';
+    }
+    if (!confirm(msg)) return;
+    const idx = tabs.indexOf(tab);
     // Move shelves (and their books) to the first remaining tab
     const targetTabId = tabs[idx === 0 ? 1 : 0].id;
     shelves.forEach(s => { if (s.tabId === tabId) s.tabId = targetTabId; });
@@ -476,8 +489,16 @@
   function deleteShelf(shelfId) {
     const tabShelves = shelves.filter(s => s.tabId === activeTabId);
     if (tabShelves.length <= 1) return;
-    const idx = shelves.findIndex(s => s.id === shelfId);
-    if (idx === -1) return;
+    const shelf = shelves.find(s => s.id === shelfId);
+    if (!shelf) return;
+    const bookCount = books.filter(b => b.shelfId === shelfId).length;
+    let msg = 'Delete shelf "' + shelf.name + '"?';
+    if (bookCount > 0) {
+      msg += '\n\nIts ' + bookCount + ' book' + (bookCount === 1 ? '' : 's') +
+        ' will be moved to another shelf.';
+    }
+    if (!confirm(msg)) return;
+    const idx = shelves.indexOf(shelf);
     // Move books to another shelf in the same tab
     const otherShelf = tabShelves.find(s => s.id !== shelfId);
     if (otherShelf) {
@@ -1264,6 +1285,7 @@
     // Delete book from detail
     document.getElementById('deleteBookBtn').addEventListener('click', () => {
       if (!currentDetailBook) return;
+      if (!confirm('Delete "' + currentDetailBook.title + '"?')) return;
       books = books.filter(b => b.id !== currentDetailBook.id);
       saveData();
       closeDetail();
