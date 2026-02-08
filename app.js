@@ -167,7 +167,7 @@
   function getBookDimensions(title) {
     const len = title.length;
     const width = Math.max(32, Math.min(52, 28 + len * 0.8));
-    const height = Math.max(140, Math.min(185, 145 + (len % 7) * 6));
+    const height = Math.max(210, Math.min(278, 218 + (len % 7) * 9));
     return { width, height };
   }
 
