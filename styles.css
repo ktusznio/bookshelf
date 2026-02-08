@@ -113,6 +113,23 @@ header h1 {
   transform: translateY(0);
 }
 
+.import-btn {
+  background: none;
+  color: var(--text-secondary);
+  border: 1.5px solid #ccc;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.import-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ---- Bookshelf ---- */
 
 main {

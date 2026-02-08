@@ -694,6 +694,110 @@
     ).join('');
   }
 
+  // ---- Goodreads CSV Import ----
+  function parseCSV(text) {
+    const rows = [];
+    let i = 0;
+    while (i < text.length) {
+      const row = [];
+      while (i < text.length) {
+        let value = '';
+        if (text[i] === '"') {
+          // Quoted field
+          i++;
+          while (i < text.length) {
+            if (text[i] === '"') {
+              if (text[i + 1] === '"') {
+                value += '"';
+                i += 2;
+              } else {
+                i++; // closing quote
+                break;
+              }
+            } else {
+              value += text[i];
+              i++;
+            }
+          }
+        } else {
+          // Unquoted field
+          while (i < text.length && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') {
+            value += text[i];
+            i++;
+          }
+        }
+        row.push(value);
+        if (i < text.length && text[i] === ',') {
+          i++; // skip comma
+        } else {
+          break; // end of row
+        }
+      }
+      // Skip line endings
+      while (i < text.length && (text[i] === '\r' || text[i] === '\n')) i++;
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+    }
+    return rows;
+  }
+
+  function importGoodreadsCSV(text) {
+    const rows = parseCSV(text);
+    if (rows.length < 2) return 0;
+
+    const header = rows[0].map(h => h.trim());
+    const colIdx = (name) => header.indexOf(name);
+
+    const titleCol = colIdx('Title');
+    const authorCol = colIdx('Author');
+    const ratingCol = colIdx('My Rating');
+    const shelfCol = colIdx('Exclusive Shelf');
+
+    if (titleCol === -1 || authorCol === -1) return 0;
+
+    // Map Goodreads shelf names to our status values
+    const statusMap = {
+      'read': 'read',
+      'currently-reading': 'reading',
+      'to-read': 'want-to-read',
+    };
+
+    // Create a dedicated shelf for the import
+    const importShelf = { id: generateId(), name: 'Goodreads Import' };
+    shelves.push(importShelf);
+
+    let count = 0;
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      const title = (row[titleCol] || '').trim();
+      const author = (row[authorCol] || '').trim();
+      if (!title) continue;
+
+      const rawRating = ratingCol !== -1 ? parseInt(row[ratingCol]) || 0 : 0;
+      const rawShelf = shelfCol !== -1 ? (row[shelfCol] || '').trim() : '';
+      const status = statusMap[rawShelf] || 'want-to-read';
+      const color = BOOK_COLORS[count % BOOK_COLORS.length];
+
+      books.push({
+        id: generateId(),
+        title,
+        author,
+        status,
+        rating: rawRating,
+        color,
+        shelfId: importShelf.id,
+      });
+      count++;
+    }
+
+    if (count === 0) {
+      // Remove the empty shelf if no books were imported
+      shelves.pop();
+    }
+
+    saveData();
+    return count;
+  }
+
   // ---- Init ----
   function init() {
     loadData();
@@ -701,6 +805,27 @@
 
     // Add book
     document.getElementById('addBookBtn').addEventListener('click', openAddModal);
+
+    // Import Goodreads CSV
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    importBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const count = importGoodreadsCSV(reader.result);
+        if (count > 0) {
+          renderBookshelf();
+          alert('Imported ' + count + ' book' + (count === 1 ? '' : 's') + ' from Goodreads!');
+        } else {
+          alert('No books found in this file. Make sure it\'s a Goodreads CSV export.');
+        }
+        importFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
 
     // Modal close
     document.getElementById('modalClose').addEventListener('click', closeModal);
