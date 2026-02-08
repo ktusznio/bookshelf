@@ -60,6 +60,7 @@
   let selectedColor = BOOK_COLORS[0];
   let currentDetailBook = null;
   let dragState = null;
+  let tabDragState = null;
 
   // ---- DOM References ----
   const tabBarEl = document.getElementById('tabBar');
@@ -265,6 +266,149 @@
     renderBookshelf();
   }
 
+  function setupTabDrag(tabEl, tabId) {
+    tabEl.addEventListener('pointerdown', onPointerDown);
+
+    function onPointerDown(e) {
+      // Ignore if clicking the close button or editing name
+      if (e.target.closest('.tab-close') || e.target.closest('.tab-name-input')) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      tabEl.setPointerCapture(e.pointerId);
+
+      tabDragState = {
+        tabId,
+        tabEl,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        isDragging: false,
+        ghostEl: null,
+        dropIndicator: null,
+      };
+
+      tabEl.addEventListener('pointermove', onPointerMove);
+      tabEl.addEventListener('pointerup', onPointerUp);
+      tabEl.addEventListener('pointercancel', onPointerCancel);
+    }
+
+    function onPointerMove(e) {
+      if (!tabDragState) return;
+
+      const dx = e.clientX - tabDragState.startX;
+      const dy = e.clientY - tabDragState.startY;
+
+      if (!tabDragState.isDragging) {
+        if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+        tabDragState.isDragging = true;
+        tabDragState.tabEl.classList.add('tab-dragging');
+
+        // Create ghost
+        const ghost = document.createElement('div');
+        ghost.className = 'tab-drag-ghost';
+        ghost.textContent = tabs.find(t => t.id === tabId)?.name || '';
+        document.body.appendChild(ghost);
+        tabDragState.ghostEl = ghost;
+
+        // Create drop indicator
+        tabDragState.dropIndicator = document.createElement('div');
+        tabDragState.dropIndicator.className = 'tab-drop-indicator';
+      }
+
+      // Move ghost
+      tabDragState.ghostEl.style.left = (e.clientX + 10) + 'px';
+      tabDragState.ghostEl.style.top = (e.clientY - 16) + 'px';
+
+      // Position drop indicator among tabs
+      if (tabDragState.dropIndicator.parentNode) tabDragState.dropIndicator.remove();
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const overTab = el ? el.closest('.tab') : null;
+      const overBar = el ? el.closest('.tab-bar') : null;
+
+      if (overBar) {
+        const tabEls = Array.from(tabBarEl.querySelectorAll('.tab:not(.tab-dragging)'));
+        let inserted = false;
+        for (const other of tabEls) {
+          const rect = other.getBoundingClientRect();
+          if (e.clientX < rect.left + rect.width / 2) {
+            tabBarEl.insertBefore(tabDragState.dropIndicator, other);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted && tabEls.length > 0) {
+          // After the last tab but before the add button
+          const addBtn = tabBarEl.querySelector('.add-tab-btn');
+          tabBarEl.insertBefore(tabDragState.dropIndicator, addBtn);
+        }
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!tabDragState) return;
+      cleanup();
+
+      if (tabDragState.isDragging) {
+        // Find the target position
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const overBar = el ? el.closest('.tab-bar') : null;
+
+        if (overBar) {
+          const tabEls = Array.from(tabBarEl.querySelectorAll('.tab:not(.tab-dragging)'));
+          let targetIndex = tabs.length; // default: end
+          for (let i = 0; i < tabEls.length; i++) {
+            const rect = tabEls[i].getBoundingClientRect();
+            if (e.clientX < rect.left + rect.width / 2) {
+              // Find this tab's index in the tabs array
+              const targetTabId = tabEls[i].dataset.tabId;
+              targetIndex = tabs.findIndex(t => t.id === targetTabId);
+              break;
+            }
+          }
+
+          // Move the tab in the array
+          const currentIndex = tabs.findIndex(t => t.id === tabDragState.tabId);
+          if (currentIndex !== -1 && currentIndex !== targetIndex) {
+            const [tab] = tabs.splice(currentIndex, 1);
+            // Adjust target if it was after the removed item
+            const adjustedIndex = targetIndex > currentIndex ? targetIndex - 1 : targetIndex;
+            tabs.splice(adjustedIndex, 0, tab);
+            saveData();
+          }
+        }
+
+        tabDragState.ghostEl.remove();
+        if (tabDragState.dropIndicator.parentNode) tabDragState.dropIndicator.remove();
+        tabDragState.tabEl.classList.remove('tab-dragging');
+        tabDragState = null;
+        renderTabs();
+      } else {
+        // It was a click — switch tab
+        const id = tabDragState.tabId;
+        tabDragState = null;
+        switchTab(id);
+      }
+    }
+
+    function onPointerCancel() {
+      if (!tabDragState) return;
+      if (tabDragState.isDragging) {
+        tabDragState.ghostEl.remove();
+        if (tabDragState.dropIndicator.parentNode) tabDragState.dropIndicator.remove();
+        tabDragState.tabEl.classList.remove('tab-dragging');
+      }
+      cleanup();
+      tabDragState = null;
+    }
+
+    function cleanup() {
+      tabEl.removeEventListener('pointermove', onPointerMove);
+      tabEl.removeEventListener('pointerup', onPointerUp);
+      tabEl.removeEventListener('pointercancel', onPointerCancel);
+    }
+  }
+
   function renderTabs() {
     tabBarEl.innerHTML = '';
     tabs.forEach(tab => {
@@ -287,7 +431,6 @@
         deleteTab(tab.id);
       });
 
-      tabEl.addEventListener('click', () => switchTab(tab.id));
       tabEl.addEventListener('dblclick', e => {
         e.preventDefault();
         startEditingTabName(nameEl, tab.id);
@@ -296,6 +439,7 @@
       tabEl.appendChild(nameEl);
       tabEl.appendChild(closeBtn);
       tabBarEl.appendChild(tabEl);
+      setupTabDrag(tabEl, tab.id);
     });
 
     // Add tab button

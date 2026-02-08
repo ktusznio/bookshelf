@@ -198,6 +198,41 @@ header h1 {
   width: 100px;
 }
 
+.tab {
+  touch-action: none;
+}
+
+.tab.tab-dragging {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.tab-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0.9;
+  padding: 0.6rem 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.tab-drop-indicator {
+  width: 2px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+  pointer-events: none;
+  align-self: center;
+  box-shadow: 0 0 6px rgba(192, 57, 43, 0.4);
+}
+
 .add-tab-btn {
   background: none;
   border: none;
