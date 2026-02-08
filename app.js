@@ -244,9 +244,11 @@
 
     input.addEventListener('blur', finishEdit);
     input.addEventListener('keydown', e => {
+      e.stopPropagation();
       if (e.key === 'Enter') input.blur();
       if (e.key === 'Escape') { input.value = tab.name; input.blur(); }
     });
+    input.addEventListener('keyup', e => e.stopPropagation());
     // Prevent click from bubbling to tab button (which would switch tabs)
     input.addEventListener('pointerdown', e => e.stopPropagation());
     input.addEventListener('click', e => e.stopPropagation());
