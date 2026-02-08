@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Bookshelf</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <h1>My Bookshelf</h1>
+    <p class="subtitle">A collection of stories, ideas, and adventures</p>
+    <div class="header-actions">
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="reading">Reading</button>
+        <button class="filter-btn" data-filter="read">Read</button>
+        <button class="filter-btn" data-filter="want-to-read">Want to Read</button>
+      </div>
+      <button class="add-book-btn" id="addBookBtn">+ Add Book</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="bookshelf" id="bookshelf">
+      <!-- Shelves with books will be rendered by JS -->
+    </div>
+  </main>
+
+  <!-- Add/Edit Book Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="bookModal">
+      <button class="modal-close" id="modalClose">&times;</button>
+      <h2 id="modalTitle">Add a Book</h2>
+      <form id="bookForm">
+        <input type="hidden" id="bookId">
+        <div class="form-group">
+          <label for="bookTitleInput">Title</label>
+          <input type="text" id="bookTitleInput" required placeholder="Enter book title">
+        </div>
+        <div class="form-group">
+          <label for="bookAuthor">Author</label>
+          <input type="text" id="bookAuthor" required placeholder="Enter author name">
+        </div>
+        <div class="form-group">
+          <label for="bookStatus">Status</label>
+          <select id="bookStatus">
+            <option value="reading">Currently Reading</option>
+            <option value="read">Read</option>
+            <option value="want-to-read">Want to Read</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="bookRating">Rating</label>
+          <div class="star-rating" id="starRating">
+            <span class="star" data-value="1">&#9733;</span>
+            <span class="star" data-value="2">&#9733;</span>
+            <span class="star" data-value="3">&#9733;</span>
+            <span class="star" data-value="4">&#9733;</span>
+            <span class="star" data-value="5">&#9733;</span>
+          </div>
+          <input type="hidden" id="bookRating" value="0">
+        </div>
+        <div class="form-group">
+          <label for="bookColor">Spine Color</label>
+          <div class="color-picker" id="colorPicker">
+            <span class="color-swatch active" data-color="#c0392b" style="background:#c0392b"></span>
+            <span class="color-swatch" data-color="#2980b9" style="background:#2980b9"></span>
+            <span class="color-swatch" data-color="#27ae60" style="background:#27ae60"></span>
+            <span class="color-swatch" data-color="#8e44ad" style="background:#8e44ad"></span>
+            <span class="color-swatch" data-color="#d35400" style="background:#d35400"></span>
+            <span class="color-swatch" data-color="#2c3e50" style="background:#2c3e50"></span>
+            <span class="color-swatch" data-color="#16a085" style="background:#16a085"></span>
+            <span class="color-swatch" data-color="#c0392b" style="background:#7f1d1d"></span>
+            <span class="color-swatch" data-color="#1e3a5f" style="background:#1e3a5f"></span>
+            <span class="color-swatch" data-color="#4a235a" style="background:#4a235a"></span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn-primary">Save Book</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Book Detail Modal -->
+  <div class="modal-overlay" id="detailOverlay">
+    <div class="modal detail-modal" id="detailModal">
+      <button class="modal-close" id="detailClose">&times;</button>
+      <div class="detail-content">
+        <div class="detail-book-preview" id="detailBookPreview"></div>
+        <div class="detail-info">
+          <h2 id="detailTitle"></h2>
+          <p class="detail-author" id="detailAuthor"></p>
+          <span class="detail-status" id="detailStatus"></span>
+          <div class="detail-rating" id="detailRating"></div>
+          <div class="detail-actions">
+            <button class="btn-secondary" id="editBookBtn">Edit</button>
+            <button class="btn-danger" id="deleteBookBtn">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
