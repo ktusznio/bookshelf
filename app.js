@@ -418,13 +418,17 @@
   }
 
   function renderStats() {
-    const reading = books.filter(b => b.status === 'reading').length;
-    const read = books.filter(b => b.status === 'read').length;
-    const wantToRead = books.filter(b => b.status === 'want-to-read').length;
+    // Scope stats to the active tab's shelves
+    const tabShelfIds = new Set(shelves.filter(s => s.tabId === activeTabId).map(s => s.id));
+    const tabBooks = books.filter(b => tabShelfIds.has(b.shelfId));
+
+    const reading = tabBooks.filter(b => b.status === 'reading').length;
+    const read = tabBooks.filter(b => b.status === 'read').length;
+    const wantToRead = tabBooks.filter(b => b.status === 'want-to-read').length;
 
     const existing = document.querySelector('.stats-bar');
     if (existing) existing.remove();
-    if (books.length === 0) return;
+    if (tabBooks.length === 0) return;
 
     const statsEl = document.createElement('div');
     statsEl.className = 'stats-bar';
@@ -446,7 +450,7 @@
       </div>
       <div class="stat">
         <span>Total</span>
-        <span class="stat-count">${books.length}</span>
+        <span class="stat-count">${tabBooks.length}</span>
       </div>
     `;
     const main = document.querySelector('main');
