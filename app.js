@@ -6,8 +6,9 @@
   'use strict';
 
   // ---- Constants ----
-  const BOOKS_PER_SHELF = 12;
   const STORAGE_KEY = 'bookshelf-books';
+  const SHELVES_STORAGE_KEY = 'bookshelf-shelves';
+  const DRAG_THRESHOLD = 8;
 
   const BOOK_COLORS = [
     '#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#d35400',
@@ -20,31 +21,38 @@
     'want-to-read': 'Want to Read',
   };
 
-  // ---- Default sample books ----
+  // ---- Default sample data ----
+  const DEFAULT_SHELVES = [
+    { id: 'shelf-1', name: 'Favorites' },
+    { id: 'shelf-2', name: 'Up Next' },
+  ];
+
   const DEFAULT_BOOKS = [
-    { id: '1', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', status: 'read', rating: 4, color: '#2c3e50' },
-    { id: '2', title: 'To Kill a Mockingbird', author: 'Harper Lee', status: 'read', rating: 5, color: '#27ae60' },
-    { id: '3', title: '1984', author: 'George Orwell', status: 'read', rating: 5, color: '#c0392b' },
-    { id: '4', title: 'Dune', author: 'Frank Herbert', status: 'reading', rating: 4, color: '#d35400' },
-    { id: '5', title: 'Project Hail Mary', author: 'Andy Weir', status: 'reading', rating: 5, color: '#2980b9' },
-    { id: '6', title: 'Sapiens', author: 'Yuval Noah Harari', status: 'read', rating: 4, color: '#8e44ad' },
-    { id: '7', title: 'The Hobbit', author: 'J.R.R. Tolkien', status: 'read', rating: 5, color: '#1e3a5f' },
-    { id: '8', title: 'Educated', author: 'Tara Westover', status: 'want-to-read', rating: 0, color: '#16a085' },
-    { id: '9', title: 'The Midnight Library', author: 'Matt Haig', status: 'want-to-read', rating: 0, color: '#4a235a' },
-    { id: '10', title: 'Atomic Habits', author: 'James Clear', status: 'read', rating: 4, color: '#7f1d1d' },
-    { id: '11', title: 'Piranesi', author: 'Susanna Clarke', status: 'reading', rating: 4, color: '#2980b9' },
-    { id: '12', title: 'Klara and the Sun', author: 'Kazuo Ishiguro', status: 'want-to-read', rating: 0, color: '#27ae60' },
-    { id: '13', title: 'The Name of the Wind', author: 'Patrick Rothfuss', status: 'read', rating: 5, color: '#c0392b' },
-    { id: '14', title: 'Thinking, Fast and Slow', author: 'Daniel Kahneman', status: 'want-to-read', rating: 0, color: '#2c3e50' },
-    { id: '15', title: 'The Alchemist', author: 'Paulo Coelho', status: 'read', rating: 3, color: '#d35400' },
+    { id: '1', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', status: 'read', rating: 4, color: '#2c3e50', shelfId: 'shelf-1' },
+    { id: '2', title: 'To Kill a Mockingbird', author: 'Harper Lee', status: 'read', rating: 5, color: '#27ae60', shelfId: 'shelf-1' },
+    { id: '3', title: '1984', author: 'George Orwell', status: 'read', rating: 5, color: '#c0392b', shelfId: 'shelf-1' },
+    { id: '4', title: 'Dune', author: 'Frank Herbert', status: 'reading', rating: 4, color: '#d35400', shelfId: 'shelf-1' },
+    { id: '5', title: 'Project Hail Mary', author: 'Andy Weir', status: 'reading', rating: 5, color: '#2980b9', shelfId: 'shelf-1' },
+    { id: '6', title: 'Sapiens', author: 'Yuval Noah Harari', status: 'read', rating: 4, color: '#8e44ad', shelfId: 'shelf-1' },
+    { id: '7', title: 'The Hobbit', author: 'J.R.R. Tolkien', status: 'read', rating: 5, color: '#1e3a5f', shelfId: 'shelf-1' },
+    { id: '8', title: 'Educated', author: 'Tara Westover', status: 'want-to-read', rating: 0, color: '#16a085', shelfId: 'shelf-2' },
+    { id: '9', title: 'The Midnight Library', author: 'Matt Haig', status: 'want-to-read', rating: 0, color: '#4a235a', shelfId: 'shelf-2' },
+    { id: '10', title: 'Atomic Habits', author: 'James Clear', status: 'read', rating: 4, color: '#7f1d1d', shelfId: 'shelf-1' },
+    { id: '11', title: 'Piranesi', author: 'Susanna Clarke', status: 'reading', rating: 4, color: '#2980b9', shelfId: 'shelf-1' },
+    { id: '12', title: 'Klara and the Sun', author: 'Kazuo Ishiguro', status: 'want-to-read', rating: 0, color: '#27ae60', shelfId: 'shelf-2' },
+    { id: '13', title: 'The Name of the Wind', author: 'Patrick Rothfuss', status: 'read', rating: 5, color: '#c0392b', shelfId: 'shelf-1' },
+    { id: '14', title: 'Thinking, Fast and Slow', author: 'Daniel Kahneman', status: 'want-to-read', rating: 0, color: '#2c3e50', shelfId: 'shelf-2' },
+    { id: '15', title: 'The Alchemist', author: 'Paulo Coelho', status: 'read', rating: 3, color: '#d35400', shelfId: 'shelf-1' },
   ];
 
   // ---- State ----
   let books = [];
+  let shelves = [];
   let activeFilter = 'all';
   let selectedRating = 0;
   let selectedColor = BOOK_COLORS[0];
   let currentDetailBook = null;
+  let dragState = null;
 
   // ---- DOM References ----
   const bookshelfEl = document.getElementById('bookshelf');
@@ -55,28 +63,62 @@
   const bookTitleInput = document.getElementById('bookTitleInput');
   const bookAuthorInput = document.getElementById('bookAuthor');
   const bookStatusInput = document.getElementById('bookStatus');
+  const bookShelfInput = document.getElementById('bookShelf');
   const bookRatingInput = document.getElementById('bookRating');
   const starRatingEl = document.getElementById('starRating');
   const colorPickerEl = document.getElementById('colorPicker');
   const modalTitleEl = document.getElementById('modalTitle');
 
   // ---- Persistence ----
-  function loadBooks() {
+  function loadData() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        books = JSON.parse(stored);
-      } else {
-        books = DEFAULT_BOOKS.map(b => ({ ...b }));
-        saveBooks();
+      const storedShelves = localStorage.getItem(SHELVES_STORAGE_KEY);
+      const storedBooks = localStorage.getItem(STORAGE_KEY);
+
+      if (storedShelves) {
+        shelves = JSON.parse(storedShelves);
       }
+
+      if (storedBooks) {
+        books = JSON.parse(storedBooks);
+      }
+
+      // Fresh start — no data at all
+      if (!storedShelves && !storedBooks) {
+        shelves = DEFAULT_SHELVES.map(s => ({ ...s }));
+        books = DEFAULT_BOOKS.map(b => ({ ...b }));
+        saveData();
+        return;
+      }
+
+      // Migration: books exist but no shelves (upgrading from v1)
+      if (!storedShelves && books.length > 0) {
+        shelves = [{ id: 'shelf-1', name: 'My Books' }];
+        books.forEach(b => { if (!b.shelfId) b.shelfId = 'shelf-1'; });
+        saveData();
+        return;
+      }
+
+      // Ensure at least one shelf
+      if (shelves.length === 0) {
+        shelves = [{ id: generateId(), name: 'My Books' }];
+      }
+
+      // Fix orphaned books
+      const shelfIds = new Set(shelves.map(s => s.id));
+      const fallbackId = shelves[0].id;
+      books.forEach(b => {
+        if (!b.shelfId || !shelfIds.has(b.shelfId)) b.shelfId = fallbackId;
+      });
     } catch {
+      shelves = DEFAULT_SHELVES.map(s => ({ ...s }));
       books = DEFAULT_BOOKS.map(b => ({ ...b }));
     }
   }
 
-  function saveBooks() {
+  function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+    localStorage.setItem(SHELVES_STORAGE_KEY, JSON.stringify(shelves));
   }
 
   // ---- Helpers ----
@@ -85,17 +127,125 @@
   }
 
   function getBookDimensions(title) {
-    // Vary book size based on title length for visual interest
     const len = title.length;
     const width = Math.max(32, Math.min(52, 28 + len * 0.8));
     const height = Math.max(140, Math.min(185, 145 + (len % 7) * 6));
     return { width, height };
   }
 
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function getBooksForShelf(shelfId) {
+    let result = books.filter(b => b.shelfId === shelfId);
+    if (activeFilter !== 'all') {
+      result = result.filter(b => b.status === activeFilter);
+    }
+    return result;
+  }
+
+  // ---- Shelf Management ----
+  function addShelf() {
+    const shelf = { id: generateId(), name: 'New Shelf' };
+    shelves.push(shelf);
+    saveData();
+    renderBookshelf();
+    // Auto-focus the name for editing
+    const shelfEl = bookshelfEl.querySelector('.shelf[data-shelf-id="' + shelf.id + '"]');
+    if (shelfEl) {
+      const nameEl = shelfEl.querySelector('.shelf-name');
+      if (nameEl) startEditingShelfName(nameEl, shelf.id);
+    }
+  }
+
+  function renameShelf(shelfId, newName) {
+    const shelf = shelves.find(s => s.id === shelfId);
+    if (shelf) {
+      shelf.name = newName.trim() || 'Unnamed Shelf';
+      saveData();
+    }
+  }
+
+  function deleteShelf(shelfId) {
+    if (shelves.length <= 1) return;
+    const idx = shelves.findIndex(s => s.id === shelfId);
+    if (idx === -1) return;
+    // Move books to the first remaining shelf
+    const targetId = shelves[idx === 0 ? 1 : 0].id;
+    books.forEach(b => { if (b.shelfId === shelfId) b.shelfId = targetId; });
+    shelves.splice(idx, 1);
+    saveData();
+    renderBookshelf();
+  }
+
+  function startEditingShelfName(nameEl, shelfId) {
+    const shelf = shelves.find(s => s.id === shelfId);
+    if (!shelf) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'shelf-name-input';
+    input.value = shelf.name;
+
+    const finishEdit = () => {
+      renameShelf(shelfId, input.value);
+      nameEl.textContent = shelf.name;
+      nameEl.style.display = '';
+      input.remove();
+    };
+
+    input.addEventListener('blur', finishEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') { input.value = shelf.name; input.blur(); }
+    });
+
+    nameEl.style.display = 'none';
+    nameEl.parentNode.insertBefore(input, nameEl.nextSibling);
+    input.focus();
+    input.select();
+  }
+
+  // ---- Book Movement ----
+  function moveBook(bookId, targetShelfId, insertBeforeBookId) {
+    const bookIdx = books.findIndex(b => b.id === bookId);
+    if (bookIdx === -1) return;
+
+    const book = books.splice(bookIdx, 1)[0];
+    book.shelfId = targetShelfId;
+
+    if (insertBeforeBookId) {
+      const targetIdx = books.findIndex(b => b.id === insertBeforeBookId);
+      if (targetIdx !== -1) {
+        books.splice(targetIdx, 0, book);
+      } else {
+        books.push(book);
+      }
+    } else {
+      // Insert at end of target shelf
+      let lastIdx = -1;
+      for (let i = 0; i < books.length; i++) {
+        if (books[i].shelfId === targetShelfId) lastIdx = i;
+      }
+      books.splice(lastIdx + 1, 0, book);
+    }
+
+    saveData();
+  }
+
   // ---- Rendering ----
-  function getFilteredBooks() {
-    if (activeFilter === 'all') return books;
-    return books.filter(b => b.status === activeFilter);
+  function populateShelfSelector(selectedShelfId) {
+    bookShelfInput.innerHTML = '';
+    shelves.forEach(shelf => {
+      const option = document.createElement('option');
+      option.value = shelf.id;
+      option.textContent = shelf.name;
+      if (shelf.id === selectedShelfId) option.selected = true;
+      bookShelfInput.appendChild(option);
+    });
   }
 
   function renderStats() {
@@ -103,10 +253,8 @@
     const read = books.filter(b => b.status === 'read').length;
     const wantToRead = books.filter(b => b.status === 'want-to-read').length;
 
-    // Remove existing stats bar
     const existing = document.querySelector('.stats-bar');
     if (existing) existing.remove();
-
     if (books.length === 0) return;
 
     const statsEl = document.createElement('div');
@@ -132,74 +280,82 @@
         <span class="stat-count">${books.length}</span>
       </div>
     `;
-
     const main = document.querySelector('main');
     main.insertBefore(statsEl, bookshelfEl);
   }
 
   function renderBookshelf() {
-    const filtered = getFilteredBooks();
     bookshelfEl.innerHTML = '';
+    let anyVisible = false;
 
-    if (filtered.length === 0) {
-      bookshelfEl.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📚</div>
-          <h2>${activeFilter === 'all' ? 'Your bookshelf is empty' : 'No books in this category'}</h2>
-          <p>${activeFilter === 'all' ? 'Add your first book to get started!' : 'Try adding some books or changing filters.'}</p>
-        </div>
-      `;
-      renderStats();
-      return;
-    }
+    shelves.forEach(shelf => {
+      const shelfBooks = getBooksForShelf(shelf.id);
 
-    // Split into shelves
-    const shelves = [];
-    for (let i = 0; i < filtered.length; i += BOOKS_PER_SHELF) {
-      shelves.push(filtered.slice(i, i + BOOKS_PER_SHELF));
-    }
+      // In filter mode, hide shelves with no matching books
+      if (activeFilter !== 'all' && shelfBooks.length === 0) return;
+      anyVisible = anyVisible || shelfBooks.length > 0;
 
-    shelves.forEach(shelfBooks => {
       const shelfEl = document.createElement('div');
       shelfEl.className = 'shelf';
+      shelfEl.dataset.shelfId = shelf.id;
 
+      // -- Shelf header --
+      const headerEl = document.createElement('div');
+      headerEl.className = 'shelf-header';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'shelf-name';
+      nameEl.textContent = shelf.name;
+
+      const countEl = document.createElement('span');
+      countEl.className = 'shelf-book-count';
+      const totalOnShelf = books.filter(b => b.shelfId === shelf.id).length;
+      countEl.textContent = '(' + totalOnShelf + ')';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'shelf-header-btn edit';
+      editBtn.innerHTML = '&#9998;';
+      editBtn.title = 'Rename shelf';
+      editBtn.addEventListener('click', () => startEditingShelfName(nameEl, shelf.id));
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'shelf-header-btn delete';
+      deleteBtn.innerHTML = '&times;';
+      deleteBtn.title = 'Delete shelf';
+      if (shelves.length <= 1) deleteBtn.style.display = 'none';
+      deleteBtn.addEventListener('click', () => deleteShelf(shelf.id));
+
+      headerEl.appendChild(nameEl);
+      headerEl.appendChild(countEl);
+      headerEl.appendChild(editBtn);
+      headerEl.appendChild(deleteBtn);
+
+      // -- Books row --
       const booksRow = document.createElement('div');
       booksRow.className = 'shelf-books';
+      booksRow.dataset.shelfId = shelf.id;
 
-      shelfBooks.forEach(book => {
-        const dim = getBookDimensions(book.title);
-        const bookEl = document.createElement('div');
-        bookEl.className = 'book';
-        bookEl.dataset.id = book.id;
-        bookEl.style.setProperty('--book-width', dim.width + 'px');
-        bookEl.style.setProperty('--book-height', dim.height + 'px');
-        bookEl.style.setProperty('--book-color', book.color);
+      if (shelfBooks.length === 0) {
+        booksRow.classList.add('empty');
+        const hint = document.createElement('span');
+        hint.className = 'shelf-empty-hint';
+        hint.textContent = 'Drag books here';
+        booksRow.appendChild(hint);
+      } else {
+        shelfBooks.forEach(book => {
+          booksRow.appendChild(createBookElement(book));
+        });
+      }
 
-        bookEl.innerHTML = `
-          <div class="book-spine" style="
-            width: ${dim.width}px;
-            height: ${dim.height}px;
-            background: ${book.color};
-          ">
-            <span class="book-title">${escapeHtml(book.title)}</span>
-            <span class="book-author">${escapeHtml(book.author)}</span>
-            <span class="book-status-dot ${book.status}"></span>
-          </div>
-        `;
-
-        bookEl.addEventListener('click', () => openDetail(book.id));
-        booksRow.appendChild(bookEl);
-      });
-
+      // -- Plank and brackets --
       const plank = document.createElement('div');
       plank.className = 'shelf-plank';
-
       const bracketLeft = document.createElement('div');
       bracketLeft.className = 'shelf-bracket-left';
-
       const bracketRight = document.createElement('div');
       bracketRight.className = 'shelf-bracket-right';
 
+      shelfEl.appendChild(headerEl);
       shelfEl.appendChild(booksRow);
       shelfEl.appendChild(plank);
       shelfEl.appendChild(bracketLeft);
@@ -207,13 +363,202 @@
       bookshelfEl.appendChild(shelfEl);
     });
 
+    // Empty state for filtered view
+    if (!anyVisible && activeFilter !== 'all') {
+      bookshelfEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <h2>No books in this category</h2>
+          <p>Try adding some books or changing filters.</p>
+        </div>
+      `;
+    } else if (books.length === 0) {
+      bookshelfEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <h2>Your bookshelf is empty</h2>
+          <p>Add your first book to get started!</p>
+        </div>
+      `;
+    }
+
+    // Add shelf button
+    const addRow = document.createElement('div');
+    addRow.className = 'add-shelf-row';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-shelf-btn';
+    addBtn.textContent = '+ Add Shelf';
+    addBtn.addEventListener('click', addShelf);
+    addRow.appendChild(addBtn);
+    bookshelfEl.appendChild(addRow);
+
     renderStats();
   }
 
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+  function createBookElement(book) {
+    const dim = getBookDimensions(book.title);
+    const bookEl = document.createElement('div');
+    bookEl.className = 'book';
+    bookEl.dataset.id = book.id;
+    bookEl.style.setProperty('--book-width', dim.width + 'px');
+    bookEl.style.setProperty('--book-height', dim.height + 'px');
+    bookEl.style.setProperty('--book-color', book.color);
+
+    bookEl.innerHTML = `
+      <div class="book-spine" style="
+        width: ${dim.width}px;
+        height: ${dim.height}px;
+        background: ${book.color};
+      ">
+        <span class="book-title">${escapeHtml(book.title)}</span>
+        <span class="book-author">${escapeHtml(book.author)}</span>
+        <span class="book-status-dot ${book.status}"></span>
+      </div>
+    `;
+
+    setupBookDrag(bookEl, book.id);
+    return bookEl;
+  }
+
+  // ---- Drag and Drop (Pointer Events) ----
+  function setupBookDrag(bookEl, bookId) {
+    bookEl.addEventListener('pointerdown', onPointerDown);
+
+    function onPointerDown(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      bookEl.setPointerCapture(e.pointerId);
+
+      dragState = {
+        bookId,
+        bookEl,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        isDragging: false,
+        ghostEl: null,
+        dropIndicator: null,
+      };
+
+      bookEl.addEventListener('pointermove', onPointerMove);
+      bookEl.addEventListener('pointerup', onPointerUp);
+      bookEl.addEventListener('pointercancel', onPointerCancel);
+    }
+
+    function onPointerMove(e) {
+      if (!dragState) return;
+
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+
+      if (!dragState.isDragging) {
+        if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+        // Begin drag
+        dragState.isDragging = true;
+        dragState.bookEl.classList.add('dragging');
+
+        // Create ghost
+        const ghost = dragState.bookEl.cloneNode(true);
+        ghost.className = 'drag-ghost';
+        ghost.style.width = dragState.bookEl.offsetWidth + 'px';
+        ghost.style.height = dragState.bookEl.offsetHeight + 'px';
+        document.body.appendChild(ghost);
+        dragState.ghostEl = ghost;
+
+        // Create drop indicator
+        dragState.dropIndicator = document.createElement('div');
+        dragState.dropIndicator.className = 'drop-indicator';
+      }
+
+      // Move ghost
+      dragState.ghostEl.style.left = (e.clientX - dragState.bookEl.offsetWidth / 2) + 'px';
+      dragState.ghostEl.style.top = (e.clientY - dragState.bookEl.offsetHeight / 2) + 'px';
+
+      // Find target shelf under pointer
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const targetShelf = el ? el.closest('.shelf') : null;
+
+      // Update drop-target class
+      document.querySelectorAll('.shelf.drop-target').forEach(s => s.classList.remove('drop-target'));
+      if (targetShelf) targetShelf.classList.add('drop-target');
+
+      // Position drop indicator
+      if (dragState.dropIndicator.parentNode) dragState.dropIndicator.remove();
+
+      if (targetShelf) {
+        const booksRow = targetShelf.querySelector('.shelf-books');
+        const bookEls = Array.from(booksRow.querySelectorAll('.book:not(.dragging)'));
+        let inserted = false;
+        for (const other of bookEls) {
+          const rect = other.getBoundingClientRect();
+          if (e.clientX < rect.left + rect.width / 2) {
+            booksRow.insertBefore(dragState.dropIndicator, other);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted) {
+          const hint = booksRow.querySelector('.shelf-empty-hint');
+          if (hint) hint.style.display = 'none';
+          booksRow.appendChild(dragState.dropIndicator);
+        }
+      }
+    }
+
+    function onPointerUp(e) {
+      if (!dragState) return;
+      cleanup(e);
+
+      if (dragState.isDragging) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const targetShelf = el ? el.closest('.shelf') : null;
+        const targetShelfId = targetShelf ? targetShelf.dataset.shelfId : null;
+
+        if (targetShelfId) {
+          const booksRow = targetShelf.querySelector('.shelf-books');
+          const bookEls = Array.from(booksRow.querySelectorAll('.book:not(.dragging)'));
+          let insertBeforeId = null;
+          for (const other of bookEls) {
+            const rect = other.getBoundingClientRect();
+            if (e.clientX < rect.left + rect.width / 2) {
+              insertBeforeId = other.dataset.id;
+              break;
+            }
+          }
+          moveBook(dragState.bookId, targetShelfId, insertBeforeId);
+        }
+
+        dragState.ghostEl.remove();
+        if (dragState.dropIndicator.parentNode) dragState.dropIndicator.remove();
+        document.querySelectorAll('.shelf.drop-target').forEach(s => s.classList.remove('drop-target'));
+        dragState.bookEl.classList.remove('dragging');
+        dragState = null;
+        renderBookshelf();
+      } else {
+        // It was a click — open detail
+        const id = dragState.bookId;
+        dragState = null;
+        openDetail(id);
+      }
+    }
+
+    function onPointerCancel() {
+      if (!dragState) return;
+      if (dragState.isDragging) {
+        dragState.ghostEl.remove();
+        if (dragState.dropIndicator.parentNode) dragState.dropIndicator.remove();
+        document.querySelectorAll('.shelf.drop-target').forEach(s => s.classList.remove('drop-target'));
+        dragState.bookEl.classList.remove('dragging');
+      }
+      cleanup();
+      dragState = null;
+    }
+
+    function cleanup(e) {
+      bookEl.removeEventListener('pointermove', onPointerMove);
+      bookEl.removeEventListener('pointerup', onPointerUp);
+      bookEl.removeEventListener('pointercancel', onPointerCancel);
+    }
   }
 
   // ---- Modal: Add/Edit ----
@@ -225,6 +570,7 @@
     selectedColor = BOOK_COLORS[0];
     updateStarDisplay();
     updateColorDisplay();
+    populateShelfSelector(shelves[0]?.id);
     modalOverlay.classList.add('active');
     bookTitleInput.focus();
   }
@@ -239,6 +585,7 @@
     modalTitleEl.textContent = 'Edit Book';
     updateStarDisplay();
     updateColorDisplay();
+    populateShelfSelector(book.shelfId);
     modalOverlay.classList.add('active');
     bookTitleInput.focus();
   }
@@ -253,23 +600,27 @@
     const title = bookTitleInput.value.trim();
     const author = bookAuthorInput.value.trim();
     const status = bookStatusInput.value;
+    const shelfId = bookShelfInput.value;
     const rating = selectedRating;
     const color = selectedColor;
 
     if (!title || !author) return;
 
     if (id) {
-      // Edit existing
       const idx = books.findIndex(b => b.id === id);
       if (idx !== -1) {
-        books[idx] = { ...books[idx], title, author, status, rating, color };
+        const oldShelfId = books[idx].shelfId;
+        books[idx] = { ...books[idx], title, author, status, rating, color, shelfId };
+        // If shelf changed, move to end of new shelf
+        if (shelfId !== oldShelfId) {
+          moveBook(id, shelfId, null);
+        }
       }
     } else {
-      // Add new
-      books.push({ id: generateId(), title, author, status, rating, color });
+      books.push({ id: generateId(), title, author, status, rating, color, shelfId });
     }
 
-    saveBooks();
+    saveData();
     renderBookshelf();
     closeModal();
   }
@@ -343,12 +694,12 @@
     ).join('');
   }
 
-  // ---- Event Listeners ----
+  // ---- Init ----
   function init() {
-    loadBooks();
+    loadData();
     renderBookshelf();
 
-    // Add book button
+    // Add book
     document.getElementById('addBookBtn').addEventListener('click', openAddModal);
 
     // Modal close
@@ -404,12 +755,12 @@
     document.getElementById('deleteBookBtn').addEventListener('click', () => {
       if (!currentDetailBook) return;
       books = books.filter(b => b.id !== currentDetailBook.id);
-      saveBooks();
+      saveData();
       closeDetail();
       renderBookshelf();
     });
 
-    // Keyboard: Escape to close modals
+    // Escape to close modals
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         if (modalOverlay.classList.contains('active')) closeModal();

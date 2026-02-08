@@ -131,6 +131,71 @@ main {
   position: relative;
 }
 
+.shelf-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 24px;
+  margin-top: 1.25rem;
+}
+
+.shelf:first-child .shelf-header {
+  margin-top: 0;
+}
+
+.shelf-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.shelf-name-input {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  outline: none;
+  background: white;
+}
+
+.shelf-header-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+  line-height: 1;
+}
+
+.shelf:hover .shelf-header-btn,
+.shelf-header-btn:focus {
+  opacity: 0.5;
+}
+
+.shelf-header-btn:hover {
+  opacity: 1 !important;
+}
+
+.shelf-header-btn.delete:hover {
+  color: #e74c3c;
+}
+
+.shelf-book-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-left: 0.25rem;
+  font-weight: 400;
+}
+
 .shelf-books {
   display: flex;
   align-items: flex-end;
@@ -734,6 +799,84 @@ main {
   gap: 0.5rem;
 }
 
+/* ---- Drag and Drop ---- */
+
+.book {
+  touch-action: none;
+}
+
+.book.dragging {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0.88;
+  transform: rotate(2deg) scale(1.08);
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.35));
+}
+
+.shelf.drop-target .shelf-books {
+  background: rgba(192, 57, 43, 0.05);
+  border-radius: 8px;
+  outline: 2px dashed rgba(192, 57, 43, 0.25);
+  outline-offset: -2px;
+}
+
+.drop-indicator {
+  width: 3px;
+  min-height: 140px;
+  background: var(--accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+  pointer-events: none;
+  align-self: flex-end;
+  box-shadow: 0 0 8px rgba(192, 57, 43, 0.4);
+}
+
+/* ---- Empty shelf / Add shelf ---- */
+
+.shelf-books.empty {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shelf-empty-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  opacity: 0.4;
+  font-style: italic;
+  pointer-events: none;
+}
+
+.add-shelf-row {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.add-shelf-btn {
+  background: none;
+  border: 2px dashed #ccc;
+  padding: 0.55rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-shelf-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ---- Stats bar ---- */
 .stats-bar {
   display: flex;
@@ -807,6 +950,14 @@ main {
 
   .detail-actions {
     justify-content: center;
+  }
+
+  .shelf-header {
+    padding: 0.4rem 12px;
+  }
+
+  .shelf-header-btn {
+    opacity: 0.5;
   }
 
   .stats-bar {
