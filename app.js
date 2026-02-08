@@ -8,6 +8,7 @@
   // ---- Constants ----
   const STORAGE_KEY = 'bookshelf-books';
   const SHELVES_STORAGE_KEY = 'bookshelf-shelves';
+  const TABS_STORAGE_KEY = 'bookshelf-tabs';
   const DRAG_THRESHOLD = 8;
 
   const BOOK_COLORS = [
@@ -22,9 +23,13 @@
   };
 
   // ---- Default sample data ----
+  const DEFAULT_TABS = [
+    { id: 'tab-1', name: 'My Library' },
+  ];
+
   const DEFAULT_SHELVES = [
-    { id: 'shelf-1', name: 'Favorites' },
-    { id: 'shelf-2', name: 'Up Next' },
+    { id: 'shelf-1', name: 'Favorites', tabId: 'tab-1' },
+    { id: 'shelf-2', name: 'Up Next', tabId: 'tab-1' },
   ];
 
   const DEFAULT_BOOKS = [
@@ -48,6 +53,8 @@
   // ---- State ----
   let books = [];
   let shelves = [];
+  let tabs = [];
+  let activeTabId = null;
   let activeFilter = 'all';
   let selectedRating = 0;
   let selectedColor = BOOK_COLORS[0];
@@ -55,6 +62,7 @@
   let dragState = null;
 
   // ---- DOM References ----
+  const tabBarEl = document.getElementById('tabBar');
   const bookshelfEl = document.getElementById('bookshelf');
   const modalOverlay = document.getElementById('modalOverlay');
   const detailOverlay = document.getElementById('detailOverlay');
@@ -72,8 +80,13 @@
   // ---- Persistence ----
   function loadData() {
     try {
+      const storedTabs = localStorage.getItem(TABS_STORAGE_KEY);
       const storedShelves = localStorage.getItem(SHELVES_STORAGE_KEY);
       const storedBooks = localStorage.getItem(STORAGE_KEY);
+
+      if (storedTabs) {
+        tabs = JSON.parse(storedTabs);
+      }
 
       if (storedShelves) {
         shelves = JSON.parse(storedShelves);
@@ -85,40 +98,65 @@
 
       // Fresh start — no data at all
       if (!storedShelves && !storedBooks) {
+        tabs = DEFAULT_TABS.map(t => ({ ...t }));
         shelves = DEFAULT_SHELVES.map(s => ({ ...s }));
         books = DEFAULT_BOOKS.map(b => ({ ...b }));
+        activeTabId = tabs[0].id;
         saveData();
         return;
       }
 
       // Migration: books exist but no shelves (upgrading from v1)
       if (!storedShelves && books.length > 0) {
-        shelves = [{ id: 'shelf-1', name: 'My Books' }];
+        shelves = [{ id: 'shelf-1', name: 'My Books', tabId: 'tab-1' }];
         books.forEach(b => { if (!b.shelfId) b.shelfId = 'shelf-1'; });
-        saveData();
-        return;
+      }
+
+      // Migration: shelves exist but no tabs (upgrading from v2)
+      if (!storedTabs || tabs.length === 0) {
+        const defaultTab = { id: 'tab-1', name: 'My Library' };
+        tabs = [defaultTab];
+        shelves.forEach(s => { if (!s.tabId) s.tabId = defaultTab.id; });
+      }
+
+      // Ensure at least one tab
+      if (tabs.length === 0) {
+        tabs = [{ id: generateId(), name: 'My Library' }];
       }
 
       // Ensure at least one shelf
       if (shelves.length === 0) {
-        shelves = [{ id: generateId(), name: 'My Books' }];
+        shelves = [{ id: generateId(), name: 'My Books', tabId: tabs[0].id }];
       }
+
+      // Fix orphaned shelves (no valid tabId)
+      const tabIds = new Set(tabs.map(t => t.id));
+      const fallbackTabId = tabs[0].id;
+      shelves.forEach(s => {
+        if (!s.tabId || !tabIds.has(s.tabId)) s.tabId = fallbackTabId;
+      });
 
       // Fix orphaned books
       const shelfIds = new Set(shelves.map(s => s.id));
-      const fallbackId = shelves[0].id;
+      const fallbackShelfId = shelves[0].id;
       books.forEach(b => {
-        if (!b.shelfId || !shelfIds.has(b.shelfId)) b.shelfId = fallbackId;
+        if (!b.shelfId || !shelfIds.has(b.shelfId)) b.shelfId = fallbackShelfId;
       });
+
+      activeTabId = tabs[0].id;
+      saveData();
     } catch {
+      tabs = DEFAULT_TABS.map(t => ({ ...t }));
       shelves = DEFAULT_SHELVES.map(s => ({ ...s }));
       books = DEFAULT_BOOKS.map(b => ({ ...b }));
+      activeTabId = tabs[0].id;
     }
   }
 
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
     localStorage.setItem(SHELVES_STORAGE_KEY, JSON.stringify(shelves));
+    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabs));
   }
 
   // ---- Helpers ----
@@ -147,9 +185,129 @@
     return result;
   }
 
+  // ---- Tab Management ----
+  function addTab() {
+    const tab = { id: generateId(), name: 'New Tab' };
+    tabs.push(tab);
+    // Create a default shelf in the new tab
+    const shelf = { id: generateId(), name: 'My Books', tabId: tab.id };
+    shelves.push(shelf);
+    activeTabId = tab.id;
+    saveData();
+    renderTabs();
+    renderBookshelf();
+    // Auto-focus the tab name for editing
+    const tabEl = tabBarEl.querySelector('.tab[data-tab-id="' + tab.id + '"]');
+    if (tabEl) {
+      const nameEl = tabEl.querySelector('.tab-name');
+      if (nameEl) startEditingTabName(nameEl, tab.id);
+    }
+  }
+
+  function renameTab(tabId, newName) {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab) {
+      tab.name = newName.trim() || 'Unnamed Tab';
+      saveData();
+    }
+  }
+
+  function deleteTab(tabId) {
+    if (tabs.length <= 1) return;
+    const idx = tabs.findIndex(t => t.id === tabId);
+    if (idx === -1) return;
+    // Move shelves (and their books) to the first remaining tab
+    const targetTabId = tabs[idx === 0 ? 1 : 0].id;
+    shelves.forEach(s => { if (s.tabId === tabId) s.tabId = targetTabId; });
+    tabs.splice(idx, 1);
+    if (activeTabId === tabId) activeTabId = tabs[0].id;
+    saveData();
+    renderTabs();
+    renderBookshelf();
+  }
+
+  function startEditingTabName(nameEl, tabId) {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tab-name-input';
+    input.value = tab.name;
+
+    const finishEdit = () => {
+      renameTab(tabId, input.value);
+      nameEl.textContent = tab.name;
+      nameEl.style.display = '';
+      input.remove();
+    };
+
+    input.addEventListener('blur', finishEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') { input.value = tab.name; input.blur(); }
+    });
+    // Prevent click from bubbling to tab button (which would switch tabs)
+    input.addEventListener('pointerdown', e => e.stopPropagation());
+    input.addEventListener('click', e => e.stopPropagation());
+
+    nameEl.style.display = 'none';
+    nameEl.parentNode.insertBefore(input, nameEl.nextSibling);
+    input.focus();
+    input.select();
+  }
+
+  function switchTab(tabId) {
+    activeTabId = tabId;
+    renderTabs();
+    renderBookshelf();
+  }
+
+  function renderTabs() {
+    tabBarEl.innerHTML = '';
+    tabs.forEach(tab => {
+      const tabEl = document.createElement('button');
+      tabEl.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+      tabEl.dataset.tabId = tab.id;
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'tab-name';
+      nameEl.textContent = tab.name;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'tab-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.title = 'Delete tab';
+      if (tabs.length <= 1) closeBtn.style.display = 'none';
+
+      closeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteTab(tab.id);
+      });
+
+      tabEl.addEventListener('click', () => switchTab(tab.id));
+      tabEl.addEventListener('dblclick', e => {
+        e.preventDefault();
+        startEditingTabName(nameEl, tab.id);
+      });
+
+      tabEl.appendChild(nameEl);
+      tabEl.appendChild(closeBtn);
+      tabBarEl.appendChild(tabEl);
+    });
+
+    // Add tab button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-tab-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add tab';
+    addBtn.addEventListener('click', addTab);
+    tabBarEl.appendChild(addBtn);
+  }
+
   // ---- Shelf Management ----
   function addShelf() {
-    const shelf = { id: generateId(), name: 'New Shelf' };
+    const shelf = { id: generateId(), name: 'New Shelf', tabId: activeTabId };
     shelves.push(shelf);
     saveData();
     renderBookshelf();
@@ -170,12 +328,15 @@
   }
 
   function deleteShelf(shelfId) {
-    if (shelves.length <= 1) return;
+    const tabShelves = shelves.filter(s => s.tabId === activeTabId);
+    if (tabShelves.length <= 1) return;
     const idx = shelves.findIndex(s => s.id === shelfId);
     if (idx === -1) return;
-    // Move books to the first remaining shelf
-    const targetId = shelves[idx === 0 ? 1 : 0].id;
-    books.forEach(b => { if (b.shelfId === shelfId) b.shelfId = targetId; });
+    // Move books to another shelf in the same tab
+    const otherShelf = tabShelves.find(s => s.id !== shelfId);
+    if (otherShelf) {
+      books.forEach(b => { if (b.shelfId === shelfId) b.shelfId = otherShelf.id; });
+    }
     shelves.splice(idx, 1);
     saveData();
     renderBookshelf();
@@ -239,12 +400,20 @@
   // ---- Rendering ----
   function populateShelfSelector(selectedShelfId) {
     bookShelfInput.innerHTML = '';
-    shelves.forEach(shelf => {
-      const option = document.createElement('option');
-      option.value = shelf.id;
-      option.textContent = shelf.name;
-      if (shelf.id === selectedShelfId) option.selected = true;
-      bookShelfInput.appendChild(option);
+    // Show shelves grouped by tab
+    tabs.forEach(tab => {
+      const tabShelves = shelves.filter(s => s.tabId === tab.id);
+      if (tabShelves.length === 0) return;
+      const group = document.createElement('optgroup');
+      group.label = tab.name;
+      tabShelves.forEach(shelf => {
+        const option = document.createElement('option');
+        option.value = shelf.id;
+        option.textContent = shelf.name;
+        if (shelf.id === selectedShelfId) option.selected = true;
+        group.appendChild(option);
+      });
+      bookShelfInput.appendChild(group);
     });
   }
 
@@ -288,7 +457,10 @@
     bookshelfEl.innerHTML = '';
     let anyVisible = false;
 
-    shelves.forEach(shelf => {
+    // Only show shelves belonging to the active tab
+    const tabShelves = shelves.filter(s => s.tabId === activeTabId);
+
+    tabShelves.forEach(shelf => {
       const shelfBooks = getBooksForShelf(shelf.id);
 
       // In filter mode, hide shelves with no matching books
@@ -322,7 +494,7 @@
       deleteBtn.className = 'shelf-header-btn delete';
       deleteBtn.innerHTML = '&times;';
       deleteBtn.title = 'Delete shelf';
-      if (shelves.length <= 1) deleteBtn.style.display = 'none';
+      if (tabShelves.length <= 1) deleteBtn.style.display = 'none';
       deleteBtn.addEventListener('click', () => deleteShelf(shelf.id));
 
       headerEl.appendChild(nameEl);
@@ -570,7 +742,8 @@
     selectedColor = BOOK_COLORS[0];
     updateStarDisplay();
     updateColorDisplay();
-    populateShelfSelector(shelves[0]?.id);
+    const activeTabShelves = shelves.filter(s => s.tabId === activeTabId);
+    populateShelfSelector(activeTabShelves[0]?.id || shelves[0]?.id);
     modalOverlay.classList.add('active');
     bookTitleInput.focus();
   }
@@ -761,8 +934,8 @@
       'to-read': 'want-to-read',
     };
 
-    // Create a dedicated shelf for the import
-    const importShelf = { id: generateId(), name: 'Goodreads Import' };
+    // Create a dedicated shelf for the import in the active tab
+    const importShelf = { id: generateId(), name: 'Goodreads Import', tabId: activeTabId };
     shelves.push(importShelf);
 
     let count = 0;
@@ -813,7 +986,7 @@
       'to-read': 'want-to-read',
     };
 
-    const importShelf = { id: generateId(), name: 'Goodreads Import' };
+    const importShelf = { id: generateId(), name: 'Goodreads Import', tabId: activeTabId };
     shelves.push(importShelf);
 
     let count = 0;
@@ -850,6 +1023,7 @@
   // ---- Init ----
   function init() {
     loadData();
+    renderTabs();
     renderBookshelf();
 
     // Add book

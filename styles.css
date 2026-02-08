@@ -130,6 +130,123 @@ header h1 {
   color: var(--accent);
 }
 
+/* ---- Tab Bar ---- */
+
+.tab-bar {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-bottom: 2px solid rgba(0,0,0,0.08);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  padding: 0.6rem 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s, background 0.2s;
+  border-radius: 8px 8px 0 0;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+  background: rgba(0,0,0,0.03);
+}
+
+.tab.active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-name {
+  pointer-events: none;
+}
+
+.tab-close {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-left: 0.5rem;
+  padding: 0 0.15rem;
+  line-height: 1;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  display: inline;
+  opacity: 0.4;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  color: #e74c3c;
+}
+
+.tab-name-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  outline: none;
+  background: white;
+  width: 100px;
+}
+
+.add-tab-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px 8px 0 0;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.add-tab-btn:hover {
+  color: var(--accent);
+  background: rgba(0,0,0,0.03);
+  opacity: 1;
+}
+
 /* ---- Bookshelf ---- */
 
 main {
@@ -980,5 +1097,19 @@ main {
   .stats-bar {
     gap: 1rem;
     flex-wrap: wrap;
+  }
+
+  .tab-bar {
+    padding: 0 0.5rem;
+  }
+
+  .tab {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.8rem;
+  }
+
+  .tab-close {
+    display: inline;
+    opacity: 0.4;
   }
 }
