@@ -747,8 +747,9 @@
     // Edit book from detail
     document.getElementById('editBookBtn').addEventListener('click', () => {
       if (!currentDetailBook) return;
+      const book = currentDetailBook;
       closeDetail();
-      setTimeout(() => openEditModal(currentDetailBook), 300);
+      setTimeout(() => openEditModal(book), 300);
     });
 
     // Delete book from detail
