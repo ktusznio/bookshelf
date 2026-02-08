@@ -422,9 +422,12 @@
     const tabShelfIds = new Set(shelves.filter(s => s.tabId === activeTabId).map(s => s.id));
     const tabBooks = books.filter(b => tabShelfIds.has(b.shelfId));
 
-    const reading = tabBooks.filter(b => b.status === 'reading').length;
-    const read = tabBooks.filter(b => b.status === 'read').length;
-    const wantToRead = tabBooks.filter(b => b.status === 'want-to-read').length;
+    const counts = {
+      'all': tabBooks.length,
+      'reading': tabBooks.filter(b => b.status === 'reading').length,
+      'read': tabBooks.filter(b => b.status === 'read').length,
+      'want-to-read': tabBooks.filter(b => b.status === 'want-to-read').length,
+    };
 
     const existing = document.querySelector('.stats-bar');
     if (existing) existing.remove();
@@ -432,27 +435,43 @@
 
     const statsEl = document.createElement('div');
     statsEl.className = 'stats-bar';
-    statsEl.innerHTML = `
-      <div class="stat">
-        <span class="stat-dot reading"></span>
-        <span>Reading</span>
-        <span class="stat-count">${reading}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-dot read"></span>
-        <span>Read</span>
-        <span class="stat-count">${read}</span>
-      </div>
-      <div class="stat">
-        <span class="stat-dot want-to-read"></span>
-        <span>Want to Read</span>
-        <span class="stat-count">${wantToRead}</span>
-      </div>
-      <div class="stat">
-        <span>Total</span>
-        <span class="stat-count">${tabBooks.length}</span>
-      </div>
-    `;
+
+    const filters = [
+      { key: 'all', label: 'All' },
+      { key: 'reading', label: 'Reading' },
+      { key: 'read', label: 'Read' },
+      { key: 'want-to-read', label: 'Want to Read' },
+    ];
+
+    filters.forEach(f => {
+      const btn = document.createElement('button');
+      btn.className = 'stat' + (activeFilter === f.key ? ' active' : '');
+      btn.dataset.filter = f.key;
+
+      if (f.key !== 'all') {
+        const dot = document.createElement('span');
+        dot.className = 'stat-dot ' + f.key;
+        btn.appendChild(dot);
+      }
+
+      const label = document.createElement('span');
+      label.textContent = f.label;
+      btn.appendChild(label);
+
+      const count = document.createElement('span');
+      count.className = 'stat-count';
+      count.textContent = counts[f.key];
+      btn.appendChild(count);
+
+      btn.addEventListener('click', () => {
+        activeFilter = f.key;
+        renderStats();
+        renderBookshelf();
+      });
+
+      statsEl.appendChild(btn);
+    });
+
     const main = document.querySelector('main');
     main.insertBefore(statsEl, bookshelfEl);
   }
@@ -1086,16 +1105,6 @@
       if (!swatch) return;
       selectedColor = rgbToHex(swatch.style.backgroundColor);
       updateColorDisplay();
-    });
-
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeFilter = btn.dataset.filter;
-        renderBookshelf();
-      });
     });
 
     // Edit book from detail
