@@ -798,6 +798,55 @@
     return count;
   }
 
+  function importGoodreadsJSON(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return 0;
+    }
+    if (!Array.isArray(data) || data.length === 0) return 0;
+
+    const statusMap = {
+      'read': 'read',
+      'currently-reading': 'reading',
+      'to-read': 'want-to-read',
+    };
+
+    const importShelf = { id: generateId(), name: 'Goodreads Import' };
+    shelves.push(importShelf);
+
+    let count = 0;
+    data.forEach(item => {
+      const title = (item.title || '').trim();
+      const author = (item.author || '').trim();
+      if (!title) return;
+
+      const rating = parseInt(item.rating) || 0;
+      const rawShelf = (item.shelf || '').trim();
+      const status = statusMap[rawShelf] || 'want-to-read';
+      const color = BOOK_COLORS[count % BOOK_COLORS.length];
+
+      books.push({
+        id: generateId(),
+        title,
+        author,
+        status,
+        rating,
+        color,
+        shelfId: importShelf.id,
+      });
+      count++;
+    });
+
+    if (count === 0) {
+      shelves.pop();
+    }
+
+    saveData();
+    return count;
+  }
+
   // ---- Init ----
   function init() {
     loadData();
@@ -806,7 +855,7 @@
     // Add book
     document.getElementById('addBookBtn').addEventListener('click', openAddModal);
 
-    // Import Goodreads CSV
+    // Import Goodreads (CSV or JSON)
     const importBtn = document.getElementById('importBtn');
     const importFileInput = document.getElementById('importFileInput');
     importBtn.addEventListener('click', () => importFileInput.click());
@@ -815,12 +864,14 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
-        const count = importGoodreadsCSV(reader.result);
+        const text = reader.result;
+        const isJSON = file.name.endsWith('.json') || text.trimStart().startsWith('[');
+        const count = isJSON ? importGoodreadsJSON(text) : importGoodreadsCSV(text);
         if (count > 0) {
           renderBookshelf();
           alert('Imported ' + count + ' book' + (count === 1 ? '' : 's') + ' from Goodreads!');
         } else {
-          alert('No books found in this file. Make sure it\'s a Goodreads CSV export.');
+          alert('No books found. Accepts Goodreads CSV export or JSON from the scraper script.');
         }
         importFileInput.value = '';
       };
