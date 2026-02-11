@@ -136,23 +136,6 @@ header h1 {
   border-radius: 0 0 10px 10px;
 }
 
-.book-search-thumb {
-  width: 32px;
-  height: 46px;
-  background: #eee;
-  border-radius: 2px;
-  flex-shrink: 0;
-  object-fit: cover;
-}
-
-.book-search-thumb.no-cover {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-}
-
 .book-search-info {
   flex: 1;
   min-width: 0;

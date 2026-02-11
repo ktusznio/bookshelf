@@ -1240,26 +1240,11 @@
             const info = item.volumeInfo || {};
             const title = info.title || '';
             const author = (info.authors || []).join(', ');
-            const thumb = (info.imageLinks?.smallThumbnail || '').replace('http://', 'https://');
-
-            searchResults.push({ title, author, thumb });
+            searchResults.push({ title, author });
 
             const el = document.createElement('div');
             el.className = 'book-search-item';
             el.dataset.index = i;
-
-            if (thumb) {
-              const img = document.createElement('img');
-              img.className = 'book-search-thumb';
-              img.src = thumb;
-              img.alt = '';
-              el.appendChild(img);
-            } else {
-              const placeholder = document.createElement('div');
-              placeholder.className = 'book-search-thumb no-cover';
-              placeholder.textContent = '?';
-              el.appendChild(placeholder);
-            }
 
             const infoDiv = document.createElement('div');
             infoDiv.className = 'book-search-info';
