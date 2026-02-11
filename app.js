@@ -1196,7 +1196,7 @@
     return count;
   }
 
-  // ---- Debug Panel ----
+  // ---- Debug Panel (image loading) ----
   const debugPanel = document.createElement('div');
   debugPanel.id = 'debugPanel';
   debugPanel.style.cssText = 'position:fixed;bottom:0;right:0;width:360px;max-height:260px;' +
@@ -1217,7 +1217,6 @@
     navigator.clipboard.writeText(text).then(
       () => { debugCopy.textContent = 'Copied!'; setTimeout(() => { debugCopy.textContent = 'Copy Logs'; }, 1500); },
       () => {
-        // Fallback for clipboard permission denied
         const ta = document.createElement('textarea');
         ta.value = text;
         document.body.appendChild(ta);
@@ -1230,7 +1229,6 @@
     );
   });
   debugPanel.appendChild(debugCopy);
-
   debugToggle.addEventListener('click', () => {
     const open = debugPanel.style.display === 'block';
     debugPanel.style.display = open ? 'none' : 'block';
@@ -1245,36 +1243,27 @@
     line.textContent = '[' + ts + '] ' + msg;
     debugPanel.appendChild(line);
     debugPanel.scrollTop = debugPanel.scrollHeight;
-    // Also keep console log
-    console.log('[dbg]', msg);
   }
 
   // ---- Book Search (Google Books API) ----
   const GOOGLE_BOOKS_API_KEY = 'AIzaSyDHLwRJ7vnKNFd4JSW-zOhdmqAZFPEMawk';
   const searchInput = document.getElementById('bookSearchInput');
   const searchDropdown = document.getElementById('bookSearchDropdown');
-  dbg('searchInput: ' + (searchInput ? 'found' : 'MISSING'));
-  dbg('searchDropdown: ' + (searchDropdown ? 'found' : 'MISSING'));
   let searchTimeout = null;
   let highlightedIndex = -1;
   let searchResults = [];
 
   function searchBooks(query) {
-    dbg('searchBooks("' + query + '") called');
     if (!query || query.length < 2) {
-      dbg('query too short, hiding dropdown');
       hideDropdown();
       return;
     }
 
     searchDropdown.innerHTML = '<div class="book-search-loading">Searching...</div>';
     searchDropdown.classList.add('visible');
-    dbg('showing "Searching..." dropdown.visible=' + searchDropdown.classList.contains('visible'));
-    dbg('dropdown display=' + getComputedStyle(searchDropdown).display + ' offsetHeight=' + searchDropdown.offsetHeight);
 
     const url = 'https://www.googleapis.com/books/v1/volumes?q=' +
-      encodeURIComponent(query) + '&maxResults=5&printType=books&key=' + GOOGLE_BOOKS_API_KEY;
-    dbg('fetch url: ' + url);
+      encodeURIComponent(query) + '&maxResults=20&printType=books&key=' + GOOGLE_BOOKS_API_KEY;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -1282,22 +1271,15 @@
     fetch(url, { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId);
-        dbg('fetch response: status=' + r.status + ' ok=' + r.ok + ' statusText=' + r.statusText);
         return r.json().then(body => ({ status: r.status, ok: r.ok, body }));
       })
       .then(({ status, ok, body }) => {
         if (!ok) {
           const errMsg = body?.error?.message || body?.error?.status || JSON.stringify(body?.error || body).slice(0, 200);
-          dbg('API error ' + status + ': ' + errMsg);
           throw new Error('API ' + status + ': ' + errMsg);
         }
         const data = body;
-        dbg('parsed JSON, items count: ' + (data.items ? data.items.length : 'none') + ', totalItems: ' + data.totalItems);
-        // Only update if input still matches (avoid stale results)
-        if (searchInput.value.trim() !== query) {
-          dbg('input changed since fetch, skipping render');
-          return;
-        }
+        if (searchInput.value.trim() !== query) return;
 
         searchResults = [];
         searchDropdown.innerHTML = '';
@@ -1316,12 +1298,16 @@
             el.dataset.index = i;
 
             if (thumb) {
+              dbg('img[' + i + '] src=' + thumb);
               const img = document.createElement('img');
               img.className = 'book-search-thumb';
               img.src = thumb;
               img.alt = '';
+              img.addEventListener('load', () => dbg('img[' + i + '] LOADED ok (' + img.naturalWidth + 'x' + img.naturalHeight + ')'));
+              img.addEventListener('error', () => dbg('img[' + i + '] FAILED src=' + img.src));
               el.appendChild(img);
             } else {
+              dbg('img[' + i + '] no thumbnail in API response');
               const placeholder = document.createElement('div');
               placeholder.className = 'book-search-thumb no-cover';
               placeholder.textContent = '?';
@@ -1352,19 +1338,16 @@
 
         highlightedIndex = -1;
         searchDropdown.classList.add('visible');
-        dbg('results rendered, items=' + searchResults.length + ' dropdown.visible=' + searchDropdown.classList.contains('visible'));
       })
       .catch(err => {
         clearTimeout(timeoutId);
         const errStr = err ? (err.message || String(err)) : 'unknown error';
-        dbg('fetch CATCH: ' + errStr);
-        // Only update if input still matches
         if (searchInput.value.trim() !== query) return;
         searchDropdown.innerHTML = '';
         const isRateLimit = errStr.includes('429');
         const msg = document.createElement('div');
         msg.className = 'book-search-loading';
-        msg.textContent = isRateLimit ? 'Rate limited by Google Books API — try again in a moment' : 'Could not reach book database';
+        msg.textContent = isRateLimit ? 'Rate limited — try again in a moment' : 'Could not reach book database';
         searchDropdown.appendChild(msg);
         const manual = document.createElement('div');
         manual.className = 'book-search-manual';
@@ -1402,14 +1385,6 @@
   }
 
   function hideDropdown() {
-    if (searchDropdown.classList.contains('visible')) {
-      dbg('hideDropdown() called (was visible)');
-      // Log the call stack to see who's calling
-      try { throw new Error(); } catch(e) {
-        const caller = (e.stack || '').split('\n')[2] || '';
-        dbg('  caller: ' + caller.trim().slice(0, 80));
-      }
-    }
     searchDropdown.classList.remove('visible');
     searchDropdown.innerHTML = '';
     searchResults = [];
@@ -1433,7 +1408,6 @@
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
       const query = searchInput.value.trim();
-      dbg('input event, query="' + query + '" len=' + query.length);
       if (query.length < 2) { hideDropdown(); return; }
       searchTimeout = setTimeout(() => searchBooks(query), 300);
     });
@@ -1469,12 +1443,7 @@
 
     // Close dropdown on outside click
     document.addEventListener('pointerdown', e => {
-      if (!e.target.closest('#bookSearchWrap')) {
-        if (searchDropdown.classList.contains('visible')) {
-          dbg('outside pointerdown, closing dropdown (target: ' + e.target.tagName + '.' + e.target.className.split(' ')[0] + ')');
-        }
-        hideDropdown();
-      }
+      if (!e.target.closest('#bookSearchWrap')) hideDropdown();
     });
 
     // Import Goodreads (CSV or JSON)

@@ -101,7 +101,7 @@ header h1 {
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0,0,0,0.18);
   z-index: 500;
-  max-height: 340px;
+  max-height: 40vh;
   overflow-y: auto;
 }
 
