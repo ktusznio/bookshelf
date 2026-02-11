@@ -1215,8 +1215,11 @@
     const url = 'https://www.googleapis.com/books/v1/volumes?q=' +
       encodeURIComponent(query) + '&maxResults=5&printType=books';
 
-    fetch(url)
-      .then(r => r.json())
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch(url, { signal: controller.signal })
+      .then(r => { clearTimeout(timeoutId); return r.json(); })
       .then(data => {
         // Only update if input still matches (avoid stale results)
         if (searchInput.value.trim() !== query) return;
@@ -1276,8 +1279,14 @@
         searchDropdown.classList.add('visible');
       })
       .catch(() => {
-        // On error, show manual option
+        clearTimeout(timeoutId);
+        // Only update if input still matches
+        if (searchInput.value.trim() !== query) return;
         searchDropdown.innerHTML = '';
+        const msg = document.createElement('div');
+        msg.className = 'book-search-loading';
+        msg.textContent = 'Could not reach book database';
+        searchDropdown.appendChild(msg);
         const manual = document.createElement('div');
         manual.className = 'book-search-manual';
         manual.textContent = '+ Add "' + query + '" manually';
