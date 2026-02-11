@@ -1250,6 +1250,7 @@
   }
 
   // ---- Book Search (Google Books API) ----
+  const GOOGLE_BOOKS_API_KEY = 'AIzaSyDHLwRJ7vnKNFd4JSW-zOhdmqAZFPEMawk';
   const searchInput = document.getElementById('bookSearchInput');
   const searchDropdown = document.getElementById('bookSearchDropdown');
   dbg('searchInput: ' + (searchInput ? 'found' : 'MISSING'));
@@ -1272,7 +1273,7 @@
     dbg('dropdown display=' + getComputedStyle(searchDropdown).display + ' offsetHeight=' + searchDropdown.offsetHeight);
 
     const url = 'https://www.googleapis.com/books/v1/volumes?q=' +
-      encodeURIComponent(query) + '&maxResults=5&printType=books';
+      encodeURIComponent(query) + '&maxResults=5&printType=books&key=' + GOOGLE_BOOKS_API_KEY;
     dbg('fetch url: ' + url);
 
     const controller = new AbortController();
