@@ -168,7 +168,11 @@
   function getBookDimensions(title) {
     const len = title.length;
     const width = Math.max(32, Math.min(52, 28 + len * 0.8));
-    const height = Math.max(210, Math.min(278, 218 + (len % 7) * 9));
+    // Hash the title for stable pseudo-random height variety
+    let hash = 0;
+    for (let i = 0; i < title.length; i++) hash = ((hash << 5) - hash + title.charCodeAt(i)) | 0;
+    const variety = ((hash >>> 0) % 7) * 9;
+    const height = Math.max(210, Math.min(278, 218 + variety));
     return { width, height };
   }
 
@@ -286,7 +290,6 @@
       // Ignore if clicking the close button or editing name
       if (e.target.closest('.tab-close') || e.target.closest('.tab-name-input')) return;
       if (e.button !== 0) return;
-      e.preventDefault();
       tabEl.setPointerCapture(e.pointerId);
 
       tabDragState = {
@@ -313,6 +316,7 @@
 
       if (!tabDragState.isDragging) {
         if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+        e.preventDefault();
         tabDragState.isDragging = true;
         tabDragState.tabEl.classList.add('tab-dragging');
 
