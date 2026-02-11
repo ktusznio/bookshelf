@@ -13,7 +13,10 @@
     <h1>My Bookshelf</h1>
     <p class="subtitle">A collection of stories, ideas, and adventures</p>
     <div class="header-actions">
-      <button class="add-book-btn" id="addBookBtn">+ Add Book</button>
+      <div class="book-search-wrap" id="bookSearchWrap">
+        <input type="text" class="book-search-input" id="bookSearchInput" placeholder="Add title..." autocomplete="off">
+        <div class="book-search-dropdown" id="bookSearchDropdown"></div>
+      </div>
       <button class="import-btn" id="importBtn">Import Goodreads</button>
       <input type="file" id="importFileInput" accept=".csv,.json" hidden>
     </div>

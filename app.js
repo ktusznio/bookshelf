@@ -924,20 +924,6 @@
   }
 
   // ---- Modal: Add/Edit ----
-  function openAddModal() {
-    bookIdInput.value = '';
-    bookForm.reset();
-    modalTitleEl.textContent = 'Add a Book';
-    selectedRating = 0;
-    selectedColor = BOOK_COLORS[0];
-    updateStarDisplay();
-    updateColorDisplay();
-    const activeTabShelves = shelves.filter(s => s.tabId === activeTabId);
-    populateShelfSelector(activeTabShelves[0]?.id || shelves[0]?.id);
-    modalOverlay.classList.add('active');
-    bookTitleInput.focus();
-  }
-
   function openEditModal(book) {
     bookIdInput.value = book.id;
     bookTitleInput.value = book.title;
@@ -1210,14 +1196,184 @@
     return count;
   }
 
+  // ---- Book Search (Google Books API) ----
+  const searchInput = document.getElementById('bookSearchInput');
+  const searchDropdown = document.getElementById('bookSearchDropdown');
+  let searchTimeout = null;
+  let highlightedIndex = -1;
+  let searchResults = [];
+
+  function searchBooks(query) {
+    if (!query || query.length < 2) {
+      hideDropdown();
+      return;
+    }
+
+    searchDropdown.innerHTML = '<div class="book-search-loading">Searching...</div>';
+    searchDropdown.classList.add('visible');
+
+    const url = 'https://www.googleapis.com/books/v1/volumes?q=' +
+      encodeURIComponent(query) + '&maxResults=5&printType=books';
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        // Only update if input still matches (avoid stale results)
+        if (searchInput.value.trim() !== query) return;
+
+        searchResults = [];
+        searchDropdown.innerHTML = '';
+
+        if (data.items && data.items.length > 0) {
+          data.items.forEach((item, i) => {
+            const info = item.volumeInfo || {};
+            const title = info.title || '';
+            const author = (info.authors || []).join(', ');
+            const thumb = info.imageLinks?.smallThumbnail || '';
+
+            searchResults.push({ title, author, thumb });
+
+            const el = document.createElement('div');
+            el.className = 'book-search-item';
+            el.dataset.index = i;
+
+            if (thumb) {
+              const img = document.createElement('img');
+              img.className = 'book-search-thumb';
+              img.src = thumb;
+              img.alt = '';
+              el.appendChild(img);
+            } else {
+              const placeholder = document.createElement('div');
+              placeholder.className = 'book-search-thumb no-cover';
+              placeholder.textContent = '?';
+              el.appendChild(placeholder);
+            }
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'book-search-info';
+            infoDiv.innerHTML =
+              '<div class="book-search-title">' + escapeHtml(title) + '</div>' +
+              '<div class="book-search-author">' + escapeHtml(author) + '</div>';
+            el.appendChild(infoDiv);
+
+            el.addEventListener('click', () => selectSearchResult(i));
+            searchDropdown.appendChild(el);
+          });
+        }
+
+        // Always add "Add manually" option
+        const manual = document.createElement('div');
+        manual.className = 'book-search-manual';
+        manual.textContent = '+ Add "' + query + '" manually';
+        manual.addEventListener('click', () => {
+          hideDropdown();
+          openAddModalWithTitle(query);
+        });
+        searchDropdown.appendChild(manual);
+
+        highlightedIndex = -1;
+        searchDropdown.classList.add('visible');
+      })
+      .catch(() => {
+        // On error, show manual option
+        searchDropdown.innerHTML = '';
+        const manual = document.createElement('div');
+        manual.className = 'book-search-manual';
+        manual.textContent = '+ Add "' + query + '" manually';
+        manual.addEventListener('click', () => {
+          hideDropdown();
+          openAddModalWithTitle(query);
+        });
+        searchDropdown.appendChild(manual);
+        searchDropdown.classList.add('visible');
+      });
+  }
+
+  function selectSearchResult(index) {
+    const result = searchResults[index];
+    if (!result) return;
+    hideDropdown();
+    openAddModalWithTitle(result.title, result.author);
+  }
+
+  function openAddModalWithTitle(title, author) {
+    searchInput.value = '';
+    bookIdInput.value = '';
+    bookForm.reset();
+    modalTitleEl.textContent = 'Add a Book';
+    bookTitleInput.value = title || '';
+    bookAuthorInput.value = author || '';
+    selectedRating = 0;
+    selectedColor = BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)];
+    updateStarDisplay();
+    updateColorDisplay();
+    const activeTabShelves = shelves.filter(s => s.tabId === activeTabId);
+    populateShelfSelector(activeTabShelves[0]?.id || shelves[0]?.id);
+    modalOverlay.classList.add('active');
+  }
+
+  function hideDropdown() {
+    searchDropdown.classList.remove('visible');
+    searchDropdown.innerHTML = '';
+    searchResults = [];
+    highlightedIndex = -1;
+  }
+
+  function updateHighlight() {
+    const items = searchDropdown.querySelectorAll('.book-search-item');
+    items.forEach((el, i) => {
+      el.classList.toggle('highlighted', i === highlightedIndex);
+    });
+  }
+
   // ---- Init ----
   function init() {
     loadData();
     renderTabs();
     renderBookshelf();
 
-    // Add book
-    document.getElementById('addBookBtn').addEventListener('click', openAddModal);
+    // Book search input
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      const query = searchInput.value.trim();
+      if (query.length < 2) { hideDropdown(); return; }
+      searchTimeout = setTimeout(() => searchBooks(query), 300);
+    });
+
+    searchInput.addEventListener('keydown', e => {
+      if (!searchDropdown.classList.contains('visible')) return;
+      const items = searchDropdown.querySelectorAll('.book-search-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+        updateHighlight();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIndex = Math.max(highlightedIndex - 1, -1);
+        updateHighlight();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+          selectSearchResult(highlightedIndex);
+        } else {
+          // Enter with no selection — add manually with typed text
+          const query = searchInput.value.trim();
+          if (query) {
+            hideDropdown();
+            openAddModalWithTitle(query);
+          }
+        }
+      } else if (e.key === 'Escape') {
+        hideDropdown();
+        searchInput.blur();
+      }
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('pointerdown', e => {
+      if (!e.target.closest('#bookSearchWrap')) hideDropdown();
+    });
 
     // Import Goodreads (CSV or JSON)
     const importBtn = document.getElementById('importBtn');
