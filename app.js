@@ -1207,6 +1207,30 @@
   debugToggle.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;' +
     'background:#333;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:4px 10px;' +
     'font:11px monospace;cursor:pointer;opacity:0.7;';
+  const debugCopy = document.createElement('button');
+  debugCopy.textContent = 'Copy Logs';
+  debugCopy.style.cssText = 'position:sticky;top:0;background:#0f0;color:#000;border:none;' +
+    'border-radius:4px;padding:2px 8px;font:11px monospace;cursor:pointer;margin-bottom:4px;';
+  debugCopy.addEventListener('click', () => {
+    const text = Array.from(debugPanel.querySelectorAll('div'))
+      .map(d => d.textContent).join('\n');
+    navigator.clipboard.writeText(text).then(
+      () => { debugCopy.textContent = 'Copied!'; setTimeout(() => { debugCopy.textContent = 'Copy Logs'; }, 1500); },
+      () => {
+        // Fallback for clipboard permission denied
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        debugCopy.textContent = 'Copied!';
+        setTimeout(() => { debugCopy.textContent = 'Copy Logs'; }, 1500);
+      }
+    );
+  });
+  debugPanel.appendChild(debugCopy);
+
   debugToggle.addEventListener('click', () => {
     const open = debugPanel.style.display === 'block';
     debugPanel.style.display = open ? 'none' : 'block';
@@ -1257,10 +1281,16 @@
     fetch(url, { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId);
-        dbg('fetch response: status=' + r.status + ' ok=' + r.ok);
-        return r.json();
+        dbg('fetch response: status=' + r.status + ' ok=' + r.ok + ' statusText=' + r.statusText);
+        return r.json().then(body => ({ status: r.status, ok: r.ok, body }));
       })
-      .then(data => {
+      .then(({ status, ok, body }) => {
+        if (!ok) {
+          const errMsg = body?.error?.message || body?.error?.status || JSON.stringify(body?.error || body).slice(0, 200);
+          dbg('API error ' + status + ': ' + errMsg);
+          throw new Error('API ' + status + ': ' + errMsg);
+        }
+        const data = body;
         dbg('parsed JSON, items count: ' + (data.items ? data.items.length : 'none') + ', totalItems: ' + data.totalItems);
         // Only update if input still matches (avoid stale results)
         if (searchInput.value.trim() !== query) {
@@ -1325,13 +1355,15 @@
       })
       .catch(err => {
         clearTimeout(timeoutId);
-        dbg('fetch CATCH: ' + (err ? err.message || err : 'unknown error'));
+        const errStr = err ? (err.message || String(err)) : 'unknown error';
+        dbg('fetch CATCH: ' + errStr);
         // Only update if input still matches
         if (searchInput.value.trim() !== query) return;
         searchDropdown.innerHTML = '';
+        const isRateLimit = errStr.includes('429');
         const msg = document.createElement('div');
         msg.className = 'book-search-loading';
-        msg.textContent = 'Could not reach book database';
+        msg.textContent = isRateLimit ? 'Rate limited by Google Books API — try again in a moment' : 'Could not reach book database';
         searchDropdown.appendChild(msg);
         const manual = document.createElement('div');
         manual.className = 'book-search-manual';
