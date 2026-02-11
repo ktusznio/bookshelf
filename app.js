@@ -1196,55 +1196,6 @@
     return count;
   }
 
-  // ---- Debug Panel (image loading) ----
-  const debugPanel = document.createElement('div');
-  debugPanel.id = 'debugPanel';
-  debugPanel.style.cssText = 'position:fixed;bottom:0;right:0;width:360px;max-height:260px;' +
-    'background:rgba(0,0,0,0.88);color:#0f0;font:11px/1.5 monospace;padding:8px 10px;' +
-    'overflow-y:auto;z-index:99999;border-radius:10px 0 0 0;display:none;';
-  const debugToggle = document.createElement('button');
-  debugToggle.textContent = 'Debug';
-  debugToggle.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;' +
-    'background:#333;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:4px 10px;' +
-    'font:11px monospace;cursor:pointer;opacity:0.7;';
-  const debugCopy = document.createElement('button');
-  debugCopy.textContent = 'Copy Logs';
-  debugCopy.style.cssText = 'position:sticky;top:0;background:#0f0;color:#000;border:none;' +
-    'border-radius:4px;padding:2px 8px;font:11px monospace;cursor:pointer;margin-bottom:4px;';
-  debugCopy.addEventListener('click', () => {
-    const text = Array.from(debugPanel.querySelectorAll('div'))
-      .map(d => d.textContent).join('\n');
-    navigator.clipboard.writeText(text).then(
-      () => { debugCopy.textContent = 'Copied!'; setTimeout(() => { debugCopy.textContent = 'Copy Logs'; }, 1500); },
-      () => {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-        debugCopy.textContent = 'Copied!';
-        setTimeout(() => { debugCopy.textContent = 'Copy Logs'; }, 1500);
-      }
-    );
-  });
-  debugPanel.appendChild(debugCopy);
-  debugToggle.addEventListener('click', () => {
-    const open = debugPanel.style.display === 'block';
-    debugPanel.style.display = open ? 'none' : 'block';
-    debugToggle.style.bottom = open ? '8px' : '268px';
-  });
-  document.body.appendChild(debugPanel);
-  document.body.appendChild(debugToggle);
-
-  function dbg(msg) {
-    const line = document.createElement('div');
-    const ts = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    line.textContent = '[' + ts + '] ' + msg;
-    debugPanel.appendChild(line);
-    debugPanel.scrollTop = debugPanel.scrollHeight;
-  }
-
   // ---- Book Search (Google Books API) ----
   const GOOGLE_BOOKS_API_KEY = 'AIzaSyDHLwRJ7vnKNFd4JSW-zOhdmqAZFPEMawk';
   const searchInput = document.getElementById('bookSearchInput');
@@ -1289,7 +1240,7 @@
             const info = item.volumeInfo || {};
             const title = info.title || '';
             const author = (info.authors || []).join(', ');
-            const thumb = info.imageLinks?.smallThumbnail || '';
+            const thumb = (info.imageLinks?.smallThumbnail || '').replace('http://', 'https://');
 
             searchResults.push({ title, author, thumb });
 
@@ -1298,16 +1249,12 @@
             el.dataset.index = i;
 
             if (thumb) {
-              dbg('img[' + i + '] src=' + thumb);
               const img = document.createElement('img');
               img.className = 'book-search-thumb';
               img.src = thumb;
               img.alt = '';
-              img.addEventListener('load', () => dbg('img[' + i + '] LOADED ok (' + img.naturalWidth + 'x' + img.naturalHeight + ')'));
-              img.addEventListener('error', () => dbg('img[' + i + '] FAILED src=' + img.src));
               el.appendChild(img);
             } else {
-              dbg('img[' + i + '] no thumbnail in API response');
               const placeholder = document.createElement('div');
               placeholder.className = 'book-search-thumb no-cover';
               placeholder.textContent = '?';
