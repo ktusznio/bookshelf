@@ -1196,33 +1196,77 @@
     return count;
   }
 
+  // ---- Debug Panel ----
+  const debugPanel = document.createElement('div');
+  debugPanel.id = 'debugPanel';
+  debugPanel.style.cssText = 'position:fixed;bottom:0;right:0;width:360px;max-height:260px;' +
+    'background:rgba(0,0,0,0.88);color:#0f0;font:11px/1.5 monospace;padding:8px 10px;' +
+    'overflow-y:auto;z-index:99999;border-radius:10px 0 0 0;display:none;';
+  const debugToggle = document.createElement('button');
+  debugToggle.textContent = 'Debug';
+  debugToggle.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;' +
+    'background:#333;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:4px 10px;' +
+    'font:11px monospace;cursor:pointer;opacity:0.7;';
+  debugToggle.addEventListener('click', () => {
+    const open = debugPanel.style.display === 'block';
+    debugPanel.style.display = open ? 'none' : 'block';
+    debugToggle.style.bottom = open ? '8px' : '268px';
+  });
+  document.body.appendChild(debugPanel);
+  document.body.appendChild(debugToggle);
+
+  function dbg(msg) {
+    const line = document.createElement('div');
+    const ts = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    line.textContent = '[' + ts + '] ' + msg;
+    debugPanel.appendChild(line);
+    debugPanel.scrollTop = debugPanel.scrollHeight;
+    // Also keep console log
+    console.log('[dbg]', msg);
+  }
+
   // ---- Book Search (Google Books API) ----
   const searchInput = document.getElementById('bookSearchInput');
   const searchDropdown = document.getElementById('bookSearchDropdown');
+  dbg('searchInput: ' + (searchInput ? 'found' : 'MISSING'));
+  dbg('searchDropdown: ' + (searchDropdown ? 'found' : 'MISSING'));
   let searchTimeout = null;
   let highlightedIndex = -1;
   let searchResults = [];
 
   function searchBooks(query) {
+    dbg('searchBooks("' + query + '") called');
     if (!query || query.length < 2) {
+      dbg('query too short, hiding dropdown');
       hideDropdown();
       return;
     }
 
     searchDropdown.innerHTML = '<div class="book-search-loading">Searching...</div>';
     searchDropdown.classList.add('visible');
+    dbg('showing "Searching..." dropdown.visible=' + searchDropdown.classList.contains('visible'));
+    dbg('dropdown display=' + getComputedStyle(searchDropdown).display + ' offsetHeight=' + searchDropdown.offsetHeight);
 
     const url = 'https://www.googleapis.com/books/v1/volumes?q=' +
       encodeURIComponent(query) + '&maxResults=5&printType=books';
+    dbg('fetch url: ' + url);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     fetch(url, { signal: controller.signal })
-      .then(r => { clearTimeout(timeoutId); return r.json(); })
+      .then(r => {
+        clearTimeout(timeoutId);
+        dbg('fetch response: status=' + r.status + ' ok=' + r.ok);
+        return r.json();
+      })
       .then(data => {
+        dbg('parsed JSON, items count: ' + (data.items ? data.items.length : 'none') + ', totalItems: ' + data.totalItems);
         // Only update if input still matches (avoid stale results)
-        if (searchInput.value.trim() !== query) return;
+        if (searchInput.value.trim() !== query) {
+          dbg('input changed since fetch, skipping render');
+          return;
+        }
 
         searchResults = [];
         searchDropdown.innerHTML = '';
@@ -1277,9 +1321,11 @@
 
         highlightedIndex = -1;
         searchDropdown.classList.add('visible');
+        dbg('results rendered, items=' + searchResults.length + ' dropdown.visible=' + searchDropdown.classList.contains('visible'));
       })
-      .catch(() => {
+      .catch(err => {
         clearTimeout(timeoutId);
+        dbg('fetch CATCH: ' + (err ? err.message || err : 'unknown error'));
         // Only update if input still matches
         if (searchInput.value.trim() !== query) return;
         searchDropdown.innerHTML = '';
@@ -1323,6 +1369,14 @@
   }
 
   function hideDropdown() {
+    if (searchDropdown.classList.contains('visible')) {
+      dbg('hideDropdown() called (was visible)');
+      // Log the call stack to see who's calling
+      try { throw new Error(); } catch(e) {
+        const caller = (e.stack || '').split('\n')[2] || '';
+        dbg('  caller: ' + caller.trim().slice(0, 80));
+      }
+    }
     searchDropdown.classList.remove('visible');
     searchDropdown.innerHTML = '';
     searchResults = [];
@@ -1346,6 +1400,7 @@
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimeout);
       const query = searchInput.value.trim();
+      dbg('input event, query="' + query + '" len=' + query.length);
       if (query.length < 2) { hideDropdown(); return; }
       searchTimeout = setTimeout(() => searchBooks(query), 300);
     });
@@ -1381,7 +1436,12 @@
 
     // Close dropdown on outside click
     document.addEventListener('pointerdown', e => {
-      if (!e.target.closest('#bookSearchWrap')) hideDropdown();
+      if (!e.target.closest('#bookSearchWrap')) {
+        if (searchDropdown.classList.contains('visible')) {
+          dbg('outside pointerdown, closing dropdown (target: ' + e.target.tagName + '.' + e.target.className.split(' ')[0] + ')');
+        }
+        hideDropdown();
+      }
     });
 
     // Import Goodreads (CSV or JSON)
